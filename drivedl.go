@@ -24,7 +24,6 @@ func downloadCallback(c *cli.Context) error {
 	return nil
 }
 
-// ./drivedl --conn 4 --path "dls/dl/as" 1Zh5fQ6e6U1ySMA15vKMvDQcIROqlHcpp
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	app := cli.NewApp()
