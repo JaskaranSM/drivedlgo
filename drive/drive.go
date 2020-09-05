@@ -1,10 +1,10 @@
-package driveHelper
+package drive
 
 import (
-	"encoding/json"
+	"drive-dl-go/db"
+	"drive-dl-go/utils"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -47,14 +47,18 @@ func (G *GoogleDriveClient) Init() {
 }
 
 func (G *GoogleDriveClient) SetConcurrency(count int) {
+	fmt.Printf("Using Concurrency: %d\n", count)
 	G.Concurrent = count
 }
 
 func (G *GoogleDriveClient) getClient(config *oauth2.Config) *http.Client {
-	tok, err := G.tokenFromFile(G.TokenFile)
+	tokBytes, err := db.GetTokenDb()
+	var tok *oauth2.Token
 	if err != nil {
 		tok = G.getTokenFromWeb(config)
-		G.saveToken(G.TokenFile, tok)
+		db.AddTokenDb(utils.OauthTokenToBytes(tok))
+	} else {
+		tok = utils.BytesToOauthToken(tokBytes)
 	}
 	return config.Client(context.Background(), tok)
 }
@@ -76,35 +80,14 @@ func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config) *oauth2.Token
 	return tok
 }
 
-func (G *GoogleDriveClient) tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
-	return tok, err
-}
-
-func (G *GoogleDriveClient) saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		log.Fatalf("Unable to cache oauth token: %v", err)
-	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
-}
-
 func (G *GoogleDriveClient) Authorize() {
-	b, err := ioutil.ReadFile(G.CredentialFile)
+	credsJsonBytes, err := db.GetCredentialsDb()
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatalf("Unable to Get Credentials from Db, make sure to use set command: %v", err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, drive.DriveScope)
+	config, err := google.ConfigFromJSON(credsJsonBytes, drive.DriveScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
