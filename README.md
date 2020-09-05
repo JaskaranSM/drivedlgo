@@ -8,6 +8,7 @@ A Minimal Google Drive Downloader Written in Go
 - Progress bar with ETA and Speeds
 - Custom Path for Downloading file/folder into
 - Download from G-Drive Shareable link support 
+- Database for storing credentials and token
 
 # Documentation
 
@@ -18,7 +19,12 @@ A Minimal Google Drive Downloader Written in Go
 - Go to the Credentials tab and click Create Credentials -> OAuth Client ID
 - Choose Other/desktop and Create.
 - Use the download button to download your credentials.
-- Move that file to same directory as drivedl, and rename it to credentials.json
+
+## Adding Credentials in application's database
+
+`
+drivedl set <path_to_credentials.json>
+`
 
 ## Using the tool
 
@@ -26,4 +32,7 @@ A Minimal Google Drive Downloader Written in Go
 `
 drivedl --help
 `
+
+## Note:-
+First time run after set command will authorize the credentials and generate token. 
 
