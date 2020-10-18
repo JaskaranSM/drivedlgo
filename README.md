@@ -9,6 +9,8 @@ A Minimal Google Drive Downloader Written in Go
 - Custom Path for Downloading file/folder into
 - Download from G-Drive Shareable link support 
 - Database for storing credentials and token
+- Resuming on partially downloaded files
+- Skipping Existing files
 
 # Documentation
 
