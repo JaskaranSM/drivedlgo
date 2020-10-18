@@ -1,8 +1,8 @@
 package drive
 
 import (
-	"drive-dl-go/db"
-	"drive-dl-go/utils"
+	"drivedlgo/db"
+	"drivedlgo/utils"
 	"fmt"
 	"io"
 	"log"

@@ -13,7 +13,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const APP_NAME = "drive-dl-go"
+const APP_NAME = "drivedlgo"
 
 func GetDbBasePath() string {
 	xdg_helper := xdg.New("", APP_NAME)

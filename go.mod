@@ -1,4 +1,4 @@
-module drive-dl-go
+module drivedlgo
 
 go 1.15
 

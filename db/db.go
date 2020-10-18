@@ -1,11 +1,10 @@
 package db
 
 import (
-	"drive-dl-go/utils"
+	"drivedlgo/utils"
 	"io/ioutil"
 	"log"
 	"path"
-
 	"github.com/prologic/bitcask"
 )
 

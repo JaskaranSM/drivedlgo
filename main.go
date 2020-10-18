@@ -1,17 +1,15 @@
 package main
 
 import (
-	"drive-dl-go/db"
-	"drive-dl-go/drive"
+	"drivedlgo/db"
+	"drivedlgo/drive"
 	"errors"
 	"fmt"
+	"github.com/urfave/cli"
 	"log"
 	"net/url"
-
 	"os"
 	"regexp"
-
-	"github.com/urfave/cli"
 )
 
 const DRIVE_LINK_REGEX string = `https://drive\.google\.com/(drive)?/?u?/?\d?/?(mobile)?/?(file)?(folders)?/?d?/([-\w]+)[?+]?/?(w+)?`
