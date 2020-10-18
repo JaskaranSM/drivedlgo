@@ -168,7 +168,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			return
 		}
 		if exists {
-			log.Printf("%s already downloaded.\n", file.Name)
+			fmt.Printf("%s already downloaded.\n", file.Name)
 			return
 		}
 		if bytesDled != 0 {
