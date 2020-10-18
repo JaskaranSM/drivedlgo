@@ -15,8 +15,6 @@ const (
 	TOKEN       string = "token"
 )
 
-var db *bitcask.Bitcask = getDb()
-
 func getDb() *bitcask.Bitcask {
 	db, err := bitcask.Open(path.Join(utils.GetDbBasePath(), DB_NAME))
 	if err != nil {
@@ -26,6 +24,8 @@ func getDb() *bitcask.Bitcask {
 }
 
 func AddCredentialsDb(credsPath string) (bool, error) {
+	db := getDb()
+	defer db.Close()
 	data, err := ioutil.ReadFile(credsPath)
 	if err != nil {
 		return false, err
@@ -38,6 +38,8 @@ func AddCredentialsDb(credsPath string) (bool, error) {
 }
 
 func AddTokenDb(tok []byte) (bool, error) {
+	db := getDb()
+	defer db.Close()
 	err := db.Put([]byte(TOKEN), tok)
 	if err != nil {
 		return false, err
@@ -46,6 +48,8 @@ func AddTokenDb(tok []byte) (bool, error) {
 }
 
 func GetCredentialsDb() ([]byte, error) {
+	db := getDb()
+	defer db.Close()
 	data, err := db.Get([]byte(CREDENTIALS))
 	if err != nil {
 		return nil, err
@@ -54,6 +58,8 @@ func GetCredentialsDb() ([]byte, error) {
 }
 
 func GetTokenDb() ([]byte, error) {
+	db := getDb()
+	defer db.Close()
 	data, err := db.Get([]byte(TOKEN))
 	if err != nil {
 		return nil, err
@@ -62,14 +68,20 @@ func GetTokenDb() ([]byte, error) {
 }
 
 func IsCredentialsInDb() bool {
+	db := getDb()
+	defer db.Close()
 	return db.Has([]byte(CREDENTIALS))
 }
 
 func IsTokenInDb() bool {
+	db := getDb()
+	defer db.Close()
 	return db.Has([]byte(TOKEN))
 }
 
 func RemoveCredentialsDb() (bool, error) {
+	db := getDb()
+	defer db.Close()
 	err := db.Delete([]byte(CREDENTIALS))
 	if err != nil {
 		return false, err
@@ -78,6 +90,8 @@ func RemoveCredentialsDb() (bool, error) {
 }
 
 func RemoveTokenDb() (bool, error) {
+	db := getDb()
+	defer db.Close()
 	err := db.Delete([]byte(TOKEN))
 	if err != nil {
 		return false, err

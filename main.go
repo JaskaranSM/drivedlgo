@@ -7,29 +7,14 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+
 	"os"
-	"os/signal"
 	"regexp"
-	"syscall"
 
 	"github.com/urfave/cli"
 )
 
 const DRIVE_LINK_REGEX string = `https://drive\.google\.com/(drive)?/?u?/?\d?/?(mobile)?/?(file)?(folders)?/?d?/([-\w]+)[?+]?/?(w+)?`
-
-func handleSignal() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		for {
-			for sig := range c {
-				fmt.Println("Got Signal")
-				fmt.Println(sig)
-				os.Exit(1)
-			}
-		}
-	}()
-}
 
 func getFileIdByLink(link string) string {
 	match := regexp.MustCompile(DRIVE_LINK_REGEX)
@@ -62,8 +47,7 @@ func downloadCallback(c *cli.Context) error {
 	if fileId == "" {
 		fileId = arg
 	}
-	log.Printf("Detected File-Id: %s\n", fileId)
-	handleSignal()
+	fmt.Printf("Detected File-Id: %s\n", fileId)
 	GD := drive.NewDriveClient()
 	GD.Init()
 	GD.Authorize()

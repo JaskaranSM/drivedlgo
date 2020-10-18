@@ -174,7 +174,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 		if bytesDled != 0 {
 			log.Printf("Resuming %s at ByteOffset %d\n", file.Name, bytesDled)
 		}
-		bar := getProgressBar64(file.Size)
+		bar := getProgressBar64(file.Size - bytesDled)
 		bar.Start()
 		go G.DownloadFile(file, absPath, bar, bytesDled)
 		wg.Add(1)
