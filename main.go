@@ -5,11 +5,12 @@ import (
 	"drivedlgo/drive"
 	"errors"
 	"fmt"
-	"github.com/urfave/cli"
 	"log"
 	"net/url"
 	"os"
 	"regexp"
+
+	"github.com/urfave/cli"
 )
 
 const DRIVE_LINK_REGEX string = `https://drive\.google\.com/(drive)?/?u?/?\d?/?(mobile)?/?(file)?(folders)?/?d?/([-\w]+)[?+]?/?(w+)?`
@@ -100,12 +101,12 @@ func main() {
 	app.Name = "Google Drive Downloader"
 	app.Usage = "A minimal Google Drive Downloader written in Go."
 	app.UsageText = fmt.Sprintf("%s [global options] [arguments...]", os.Args[0])
-	app.Authors = []cli.Author{
+	app.Authors = []*cli.Author{
 		{Name: "JaskaranSM"},
 	}
 	app.Action = downloadCallback
 	app.Flags = dlFlags
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:   "set",
 			Usage:  "add credentials.json file to database",
