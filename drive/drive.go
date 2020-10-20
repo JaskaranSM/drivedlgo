@@ -45,10 +45,11 @@ func (G *GoogleDriveClient) SetConcurrency(count int) {
 	G.channel = make(chan int, count)
 }
 
-func (G *GoogleDriveClient) GetProgressBar(size int64) *mpb.Bar {
+func (G *GoogleDriveClient) GetProgressBar(size int64, status string) *mpb.Bar {
 	bar := G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
 		mpb.PrependDecorators(
-			decor.CountersKibiByte(" % .2f / % .2f"),
+			decor.Name(status, decor.WC{W: len(status) + 1, C: decor.DidentRight}),
+			decor.CountersKibiByte("% .2f / % .2f"),
 		),
 		mpb.AppendDecorators(
 			decor.EwmaETA(decor.ET_STYLE_GO, 90),
@@ -139,6 +140,7 @@ func (G *GoogleDriveClient) GetFileMetadata(fileId string) *drive.File {
 }
 
 func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
+	var status string = ""
 	file := G.GetFileMetadata(nodeId)
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
 	absPath := path.Join(localPath, file.Name)
@@ -157,18 +159,22 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			return
 		}
 		if bytesDled != 0 {
-			log.Printf("Resuming %s at ByteOffset %d\n", file.Name, bytesDled)
+			status = fmt.Sprintf("[Resumed-%d]", bytesDled)
+		} else {
+			status = fmt.Sprintf("[Downloading]")
 		}
 		G.channel <- 1
-		bar := G.GetProgressBar(file.Size - bytesDled)
+		bar := G.GetProgressBar(file.Size-bytesDled, status)
 		go G.DownloadFile(file, absPath, bar, bytesDled)
 		wg.Add(1)
+		status = ""
 	}
 	wg.Wait()
 }
 
 func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 	files := G.GetFilesByParentId(nodeId)
+	var status string = ""
 	for _, file := range files {
 		absPath := path.Join(localPath, file.Name)
 		if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
@@ -189,12 +195,15 @@ func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 				continue
 			}
 			if bytesDled != 0 {
-				fmt.Printf("Resuming %s at ByteOffset %d\n", file.Name, bytesDled)
+				status = fmt.Sprintf("[Resumed-%d]", bytesDled)
+			} else {
+				status = fmt.Sprintf("[Downloading]")
 			}
 			G.channel <- 1
-			bar := G.GetProgressBar(file.Size - bytesDled)
+			bar := G.GetProgressBar(file.Size-bytesDled, status)
 			go G.DownloadFile(file, absPath, bar, bytesDled)
 			wg.Add(1)
+			status = ""
 		}
 	}
 }
