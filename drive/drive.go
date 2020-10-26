@@ -54,7 +54,7 @@ func (G *GoogleDriveClient) GetProgressBar(size int64, status string) *mpb.Bar {
 		mpb.AppendDecorators(
 			decor.EwmaETA(decor.ET_STYLE_GO, 90),
 			decor.Name("]"),
-			decor.EwmaSpeed(decor.UnitKiB, " % .2f", 60),
+			decor.EwmaSpeed(decor.UnitKiB, " % .2f", 90),
 		),
 	)
 	return bar
