@@ -52,7 +52,7 @@ func (G *GoogleDriveClient) GetProgressBar(size int64, status string) *mpb.Bar {
 			decor.CountersKibiByte("% .2f / % .2f"),
 		),
 		mpb.AppendDecorators(
-			decor.EwmaETA(decor.ET_STYLE_GO, 90),
+			decor.AverageETA(decor.ET_STYLE_GO),
 			decor.Name("]"),
 			decor.AverageSpeed(decor.UnitKiB, " % .2f"),
 		),
