@@ -25,14 +25,22 @@ A Minimal Google Drive Downloader Written in Go
 ## Adding Credentials in application's database
 
 `
-drivedl set <path_to_credentials.json>
+drivedlgo set <path_to_credentials.json>
+`
+
+## Installing via Arch User Repository (For Arch Linux and its Derivatives)
+
+[Package Link](https://aur.archlinux.org/packages/drivedlgo-bin/)
+
+`
+yay -S drivedlgo-bin
 `
 
 ## Using the tool
 
 - Usage can be found in --help
 `
-drivedl --help
+drivedlgo --help
 `
 
 ## Note:-
