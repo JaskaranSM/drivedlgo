@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/gob"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -29,7 +28,6 @@ func BytesToOauthToken(data []byte) *oauth2.Token {
 }
 
 func GetFileMd5(filePath string) (string, error) {
-	fmt.Printf("Calculating Md5Sum of %s\n", filePath)
 	var returnMD5String string
 	file, err := os.Open(filePath)
 	if err != nil {

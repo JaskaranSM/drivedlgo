@@ -1,6 +1,7 @@
 package drive
 
 import (
+	"drivedlgo/customdec"
 	"drivedlgo/db"
 	"drivedlgo/utils"
 	"fmt"
@@ -22,6 +23,8 @@ import (
 )
 
 var wg sync.WaitGroup
+
+const MAX_NAME_CHARACTERS int = 17
 
 type GoogleDriveClient struct {
 	GDRIVE_DIR_MIMETYPE string
@@ -45,18 +48,38 @@ func (G *GoogleDriveClient) SetConcurrency(count int) {
 	G.channel = make(chan int, count)
 }
 
-func (G *GoogleDriveClient) GetProgressBar(size int64, status string) *mpb.Bar {
-	bar := G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
-		mpb.PrependDecorators(
-			decor.Name(status, decor.WC{W: len(status) + 1, C: decor.DidentRight}),
-			decor.CountersKibiByte("% .2f / % .2f"),
-		),
-		mpb.AppendDecorators(
-			decor.AverageETA(decor.ET_STYLE_GO),
-			decor.Name("]"),
-			decor.AverageSpeed(decor.UnitKiB, " % .2f"),
-		),
-	)
+func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar {
+	var bar *mpb.Bar
+	if len(filename) > MAX_NAME_CHARACTERS {
+		marquee := customdec.NewChangeNameDecor(filename, MAX_NAME_CHARACTERS)
+		bar = G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
+			mpb.PrependDecorators(
+				decor.Name("[ "),
+				marquee.MarqueeText(decor.WC{W: 5, C: decor.DidentRight}),
+				decor.Name(" ] "),
+				decor.CountersKibiByte("% .2f / % .2f"),
+			),
+			mpb.AppendDecorators(
+				decor.AverageETA(decor.ET_STYLE_GO),
+				decor.Name("]"),
+				decor.AverageSpeed(decor.UnitKiB, " % .2f"),
+			),
+		)
+	} else {
+		bar = G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
+			mpb.PrependDecorators(
+				decor.Name("[ "),
+				decor.Name(filename, decor.WC{W: 5, C: decor.DidentRight}),
+				decor.Name(" ] "),
+				decor.CountersKibiByte("% .2f / % .2f"),
+			),
+			mpb.AppendDecorators(
+				decor.AverageETA(decor.ET_STYLE_GO),
+				decor.Name("]"),
+				decor.AverageSpeed(decor.UnitKiB, " % .2f"),
+			),
+		)
+	}
 	return bar
 }
 
@@ -140,7 +163,6 @@ func (G *GoogleDriveClient) GetFileMetadata(fileId string) *drive.File {
 }
 
 func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
-	var status string = ""
 	file := G.GetFileMetadata(nodeId)
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
 	absPath := path.Join(localPath, file.Name)
@@ -159,22 +181,18 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			return
 		}
 		if bytesDled != 0 {
-			status = fmt.Sprintf("[Resumed-%d]", bytesDled)
-		} else {
-			status = fmt.Sprintf("[Downloading]")
+			fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 		}
 		G.channel <- 1
-		bar := G.GetProgressBar(file.Size-bytesDled, status)
+		bar := G.GetProgressBar(file.Name, file.Size-bytesDled)
 		go G.DownloadFile(file, absPath, bar, bytesDled)
 		wg.Add(1)
-		status = ""
 	}
 	wg.Wait()
 }
 
 func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 	files := G.GetFilesByParentId(nodeId)
-	var status string = ""
 	for _, file := range files {
 		absPath := path.Join(localPath, file.Name)
 		if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
@@ -195,15 +213,12 @@ func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 				continue
 			}
 			if bytesDled != 0 {
-				status = fmt.Sprintf("[Resumed-%d]", bytesDled)
-			} else {
-				status = fmt.Sprintf("[Downloading]")
+				fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 			}
 			G.channel <- 1
-			bar := G.GetProgressBar(file.Size-bytesDled, status)
+			bar := G.GetProgressBar(file.Name, file.Size-bytesDled)
 			go G.DownloadFile(file, absPath, bar, bytesDled)
 			wg.Add(1)
-			status = ""
 		}
 	}
 }

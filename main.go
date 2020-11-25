@@ -118,7 +118,7 @@ func main() {
 			Action: rmCredsCallback,
 		},
 	}
-	app.Version = "1.3"
+	app.Version = "1.4"
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
