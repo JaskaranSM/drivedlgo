@@ -18,8 +18,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 
-	"github.com/vbauerster/mpb"
-	"github.com/vbauerster/mpb/decor"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 )
 
 var wg sync.WaitGroup

@@ -1,7 +1,7 @@
 package customdec
 
 import (
-	"github.com/vbauerster/mpb/decor"
+	"github.com/vbauerster/mpb/v5/decor"
 )
 
 type MarqueeTextDecor struct {
