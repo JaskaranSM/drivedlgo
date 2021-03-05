@@ -174,10 +174,19 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
 	absPath := path.Join(localPath, file.Name)
 	if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
-		os.MkdirAll(absPath, 0755)
+		err := os.MkdirAll(absPath, 0755)
+		if err != nil {
+			log.Println("Error while creating directory: ", err.Error())
+			return
+		}
 		G.TraverseNodes(file.Id, absPath)
+
 	} else {
-		os.MkdirAll(localPath, 0755)
+		err := os.MkdirAll(localPath, 0755)
+		if err != nil {
+			log.Println("Error while creating directory: ", err.Error())
+			return
+		}
 		exists, bytesDled, err := utils.CheckLocalFile(absPath, file.Md5Checksum)
 		if err != nil {
 			log.Printf("[FileCheckError]: %v\n", err)
@@ -248,7 +257,7 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 			time.Sleep(5 * time.Second)
 			return G.DownloadFile(file, localPath, startByteIndex)
 		}
-		log.Printf("[API-files:get]: (%s) %v", file.Id, err)
+		log.Printf("[API-files:get]: (%s) %v\n", file.Id, err)
 		return false
 	}
 	bar := G.GetProgressBar(file.Name, file.Size-startByteIndex)

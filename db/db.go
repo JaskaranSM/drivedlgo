@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+
 	"github.com/prologic/bitcask"
 )
 
@@ -12,6 +13,7 @@ const (
 	DB_NAME     string = "drivedl-go-db"
 	CREDENTIALS string = "credentials"
 	TOKEN       string = "token"
+	DL_DIR      string = "dl_dir"
 )
 
 func getDb() *bitcask.Bitcask {
@@ -92,6 +94,36 @@ func RemoveTokenDb() (bool, error) {
 	db := getDb()
 	defer db.Close()
 	err := db.Delete([]byte(TOKEN))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func AddDLDirDb(dir_path string) (bool, error) {
+	db := getDb()
+	defer db.Close()
+	err := db.Put([]byte(DL_DIR), []byte(dir_path))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func GetDLDirDb() (string, error) {
+	db := getDb()
+	defer db.Close()
+	data, err := db.Get([]byte(DL_DIR))
+	if err != nil {
+		return ".", err
+	}
+	return string(data), nil
+}
+
+func RemoveDLDirDb() (bool, error) {
+	db := getDb()
+	defer db.Close()
+	err := db.Delete([]byte(DL_DIR))
 	if err != nil {
 		return false, err
 	}

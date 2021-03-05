@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 
 	"github.com/urfave/cli"
@@ -52,14 +53,22 @@ func downloadCallback(c *cli.Context) error {
 	GD.Authorize()
 	GD.SetConcurrency(c.Int("conn"))
 	GD.SetAbusiveFileDownload(c.Bool("acknowledge-abuse"))
-	GD.Download(fileId, c.String("path"))
+	cus_path, err := db.GetDLDirDb()
+	if err == nil {
+		if c.String("path") == "." {
+			path.Join(cus_path, c.String("path"))
+		} else {
+			cus_path = c.String("path")
+		}
+	}
+	GD.Download(fileId, cus_path)
 	return nil
 }
 
 func setCredsCallback(c *cli.Context) error {
 	arg := c.Args().Get(0)
 	if arg == "" {
-		return errors.New("Provide a Proper credentials.json file path.")
+		return errors.New("Provide a proper credentials.json file path.")
 	}
 	fmt.Printf("Detected credentials.json Path: %s\n", arg)
 	if !db.IsCredentialsInDb() {
@@ -81,6 +90,35 @@ func rmCredsCallback(c *cli.Context) error {
 		fmt.Println("credentials removed from database successfully.")
 	} else {
 		fmt.Println("Database doesnt contain any credentials.")
+	}
+	return nil
+}
+
+func setDLDirCallback(c *cli.Context) error {
+	arg := c.Args().Get(0)
+	if arg == "" {
+		return errors.New("Provide a proper download directory path.")
+	}
+	fmt.Printf("Detected download directory path: %s\n", arg)
+	_, err := db.GetDLDirDb()
+	if err == nil {
+		db.RemoveDLDirDb()
+	}
+	_, err = db.AddDLDirDb(arg)
+	return err
+}
+
+func rmDLDirCallback(c *cli.Context) error {
+	_, err := db.GetDLDirDb()
+	if err != nil {
+		fmt.Println("DB doesnt contain default directory path, try --help.")
+	} else {
+		_, err = db.RemoveDLDirDb()
+		if err == nil {
+			fmt.Println("Default directory removed successfully, now application will download in current working directory.")
+		} else {
+			fmt.Println("Error while removing default directory: ", err.Error())
+		}
 	}
 	return nil
 }
@@ -122,8 +160,18 @@ func main() {
 			Usage:  "remove credentials from database",
 			Action: rmCredsCallback,
 		},
+		{
+			Name:   "setdldir",
+			Usage:  "set default download directory",
+			Action: setDLDirCallback,
+		},
+		{
+			Name:   "rmdldir",
+			Usage:  "remove default download directory and set the application to download in current folder.",
+			Action: rmDLDirCallback,
+		},
 	}
-	app.Version = "1.4"
+	app.Version = "1.5"
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
