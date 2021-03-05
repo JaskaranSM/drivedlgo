@@ -51,6 +51,7 @@ func downloadCallback(c *cli.Context) error {
 	GD.Init()
 	GD.Authorize()
 	GD.SetConcurrency(c.Int("conn"))
+	GD.SetAbusiveFileDownload(c.Bool("acknowledge-abuse"))
 	GD.Download(fileId, c.String("path"))
 	return nil
 }
@@ -95,6 +96,10 @@ func main() {
 			Name:  "conn",
 			Usage: "Number of Concurrent File Downloads.",
 			Value: 2,
+		},
+		&cli.BoolFlag{
+			Name:  "acknowledge-abuse",
+			Usage: "Enable downloading of files marked as abusive by google drive.",
 		},
 	}
 	app := cli.NewApp()

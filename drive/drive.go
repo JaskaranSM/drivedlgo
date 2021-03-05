@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ type GoogleDriveClient struct {
 	CredentialFile      string
 	DriveSrv            *drive.Service
 	Progress            *mpb.Progress
+	abuse               bool
 	channel             chan int
 }
 
@@ -41,6 +43,11 @@ func (G *GoogleDriveClient) Init() {
 	G.CredentialFile = "credentials.json"
 	G.channel = make(chan int, 2)
 	G.Progress = mpb.New(mpb.WithWidth(60), mpb.WithRefreshRate(180*time.Millisecond))
+}
+
+func (G *GoogleDriveClient) SetAbusiveFileDownload(abuse bool) {
+	fmt.Printf("Acknowledge-Abuse: %t\n", abuse)
+	G.abuse = abuse
 }
 
 func (G *GoogleDriveClient) SetConcurrency(count int) {
@@ -135,7 +142,7 @@ func (G *GoogleDriveClient) GetFilesByParentId(parentId string) []*drive.File {
 	var files []*drive.File
 	pageToken := ""
 	for {
-		request := G.DriveSrv.Files.List().Q("'" + parentId + "' in parents").OrderBy("folder").SupportsAllDrives(true).IncludeTeamDriveItems(true).PageSize(1000).
+		request := G.DriveSrv.Files.List().Q("'" + parentId + "' in parents").OrderBy("name,folder").SupportsAllDrives(true).IncludeTeamDriveItems(true).PageSize(1000).
 			Fields("nextPageToken,files(id, name,size, mimeType,md5Checksum)")
 		if pageToken != "" {
 			request = request.PageToken(pageToken)
@@ -184,8 +191,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 		}
 		G.channel <- 1
-		bar := G.GetProgressBar(file.Name, file.Size-bytesDled)
-		go G.DownloadFile(file, absPath, bar, bytesDled)
+		go G.DownloadFile(file, absPath, bytesDled)
 		wg.Add(1)
 	}
 	wg.Wait()
@@ -216,34 +222,39 @@ func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 				fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 			}
 			G.channel <- 1
-			bar := G.GetProgressBar(file.Name, file.Size-bytesDled)
-			go G.DownloadFile(file, absPath, bar, bytesDled)
+			go G.DownloadFile(file, absPath, bytesDled)
 			wg.Add(1)
 		}
 	}
 }
 
-func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, bar *mpb.Bar, startByteIndex int64) bool {
+func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64) bool {
+	defer func() {
+		wg.Done()
+		<-G.channel
+	}()
 	writer, err := os.OpenFile(localPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	writer.Seek(startByteIndex, 0)
-	request := G.DriveSrv.Files.Get(file.Id).SupportsAllDrives(true)
-	request.Header().Add("Range", fmt.Sprintf("bytes=%d-%d", startByteIndex, file.Size))
-	response, err := request.Download()
-	if err != nil {
-		log.Printf("[API-files:get]: %v", err)
-		return false
-	}
-
+	defer writer.Close()
 	if err != nil {
 		log.Printf("[FileOpenError]: %v\n", err)
 		return false
 	}
+	writer.Seek(startByteIndex, 0)
+	request := G.DriveSrv.Files.Get(file.Id).AcknowledgeAbuse(G.abuse).SupportsAllDrives(true)
+	request.Header().Add("Range", fmt.Sprintf("bytes=%d-%d", startByteIndex, file.Size))
+	response, err := request.Download()
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "rate") {
+			time.Sleep(5 * time.Second)
+			return G.DownloadFile(file, localPath, startByteIndex)
+		}
+		log.Printf("[API-files:get]: (%s) %v", file.Id, err)
+		return false
+	}
+	bar := G.GetProgressBar(file.Name, file.Size-startByteIndex)
 	proxyReader := bar.ProxyReader(response.Body)
 	io.Copy(writer, proxyReader)
-	writer.Close()
 	proxyReader.Close()
-	wg.Done()
-	<-G.channel
 	return true
 }
 
