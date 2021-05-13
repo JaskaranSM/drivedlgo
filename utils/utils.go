@@ -7,17 +7,21 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/OpenPeeDeeP/xdg"
 	"golang.org/x/oauth2"
 )
 
-const APP_NAME = "drivedlgo"
+const (
+	APP_NAME string = "drivedlgo"
+	DB_NAME  string = "drivedl-go-db"
+)
 
-func GetDbBasePath() string {
+func GetDefaultDbPath() string {
 	xdg_helper := xdg.New("", APP_NAME)
-	return xdg_helper.ConfigHome()
+	return path.Join(xdg_helper.ConfigHome(), DB_NAME)
 }
 
 func BytesToOauthToken(data []byte) *oauth2.Token {
