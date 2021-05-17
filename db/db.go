@@ -10,6 +10,7 @@ import (
 const (
 	CREDENTIALS string = "credentials"
 	TOKEN       string = "token"
+	JWTCONFIG   string = "jwtconfig"
 	DL_DIR      string = "dl_dir"
 )
 
@@ -45,6 +46,20 @@ func AddTokenDb(dbPath string, tok []byte) (bool, error) {
 	return true, nil
 }
 
+func AddJWTConfigDb(dbPath string, configPath string) (bool, error) {
+	db := getDb(dbPath)
+	defer db.Close()
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return false, err
+	}
+	err = db.Put([]byte(JWTCONFIG), data)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func GetCredentialsDb(dbPath string) ([]byte, error) {
 	db := getDb(dbPath)
 	defer db.Close()
@@ -65,6 +80,16 @@ func GetTokenDb(dbPath string) ([]byte, error) {
 	return data, nil
 }
 
+func GetJWTConfigDb(dbPath string) ([]byte, error) {
+	db := getDb(dbPath)
+	defer db.Close()
+	data, err := db.Get([]byte(JWTCONFIG))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func IsCredentialsInDb(dbPath string) bool {
 	db := getDb(dbPath)
 	defer db.Close()
@@ -75,6 +100,12 @@ func IsTokenInDb(dbPath string) bool {
 	db := getDb(dbPath)
 	defer db.Close()
 	return db.Has([]byte(TOKEN))
+}
+
+func IsJWTConfigInDb(dbPath string) bool {
+	db := getDb(dbPath)
+	defer db.Close()
+	return db.Has([]byte(JWTCONFIG))
 }
 
 func RemoveCredentialsDb(dbPath string) (bool, error) {
@@ -91,6 +122,16 @@ func RemoveTokenDb(dbPath string) (bool, error) {
 	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Delete([]byte(TOKEN))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func RemoveJWTConfigDb(dbPath string) (bool, error) {
+	db := getDb(dbPath)
+	defer db.Close()
+	err := db.Delete([]byte(JWTCONFIG))
 	if err != nil {
 		return false, err
 	}
