@@ -60,6 +60,8 @@ func downloadCallback(c *cli.Context) error {
 		} else {
 			cus_path = c.String("path")
 		}
+	} else {
+		cus_path = c.String("path")
 	}
 	GD.Download(fileId, cus_path)
 	return nil
