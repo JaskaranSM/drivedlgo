@@ -26,6 +26,7 @@ import (
 var wg sync.WaitGroup
 
 const MAX_NAME_CHARACTERS int = 17
+const MAX_RETRIES int = 5
 
 type GoogleDriveClient struct {
 	GDRIVE_DIR_MIMETYPE string
@@ -90,12 +91,12 @@ func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar
 	return bar
 }
 
-func (G *GoogleDriveClient) getClient(config *oauth2.Config) *http.Client {
-	tokBytes, err := db.GetTokenDb()
+func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config) *http.Client {
+	tokBytes, err := db.GetTokenDb(dbPath)
 	var tok *oauth2.Token
 	if err != nil {
 		tok = G.getTokenFromWeb(config)
-		db.AddTokenDb(utils.OauthTokenToBytes(tok))
+		db.AddTokenDb(dbPath, utils.OauthTokenToBytes(tok))
 	} else {
 		tok = utils.BytesToOauthToken(tokBytes)
 	}
@@ -119,8 +120,8 @@ func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config) *oauth2.Token
 	return tok
 }
 
-func (G *GoogleDriveClient) Authorize() {
-	credsJsonBytes, err := db.GetCredentialsDb()
+func (G *GoogleDriveClient) Authorize(dbPath string) {
+	credsJsonBytes, err := db.GetCredentialsDb(dbPath)
 	if err != nil {
 		log.Fatalf("Unable to Get Credentials from Db, make sure to use set command: %v", err)
 	}
@@ -130,7 +131,7 @@ func (G *GoogleDriveClient) Authorize() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	client := G.getClient(config)
+	client := G.getClient(dbPath, config)
 	srv, err := drive.New(client)
 	if err != nil {
 		log.Fatalf("Unable to retrieve Drive client: %v", err)
@@ -169,10 +170,13 @@ func (G *GoogleDriveClient) GetFileMetadata(fileId string) *drive.File {
 	return file
 }
 
-func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
+func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath string) {
 	file := G.GetFileMetadata(nodeId)
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
-	absPath := path.Join(localPath, file.Name)
+	if outputPath == "" {
+		outputPath = file.Name
+	}
+	absPath := path.Join(localPath, outputPath)
 	if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
 		err := os.MkdirAll(absPath, 0755)
 		if err != nil {
@@ -200,7 +204,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 		}
 		G.channel <- 1
-		go G.DownloadFile(file, absPath, bytesDled)
+		go G.DownloadFile(file, absPath, bytesDled, 1)
 		wg.Add(1)
 	}
 	wg.Wait()
@@ -231,21 +235,22 @@ func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 				fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
 			}
 			G.channel <- 1
-			go G.DownloadFile(file, absPath, bytesDled)
+			go G.DownloadFile(file, absPath, bytesDled, 1)
 			wg.Add(1)
 		}
 	}
 }
 
-func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64) bool {
-	defer func() {
+func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64, retry int) bool {
+	cleanup := func() {
 		wg.Done()
 		<-G.channel
-	}()
+	}
 	writer, err := os.OpenFile(localPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	defer writer.Close()
 	if err != nil {
 		log.Printf("[FileOpenError]: %v\n", err)
+		cleanup()
 		return false
 	}
 	writer.Seek(startByteIndex, 0)
@@ -253,17 +258,31 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 	request.Header().Add("Range", fmt.Sprintf("bytes=%d-%d", startByteIndex, file.Size))
 	response, err := request.Download()
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "rate") {
+		if strings.Contains(strings.ToLower(err.Error()), "rate") || response.StatusCode >= 500 && retry <= 5 {
 			time.Sleep(5 * time.Second)
-			return G.DownloadFile(file, localPath, startByteIndex)
+			return G.DownloadFile(file, localPath, startByteIndex, retry+1)
 		}
 		log.Printf("[API-files:get]: (%s) %v\n", file.Id, err)
+		cleanup()
 		return false
 	}
 	bar := G.GetProgressBar(file.Name, file.Size-startByteIndex)
 	proxyReader := bar.ProxyReader(response.Body)
-	io.Copy(writer, proxyReader)
-	proxyReader.Close()
+	defer proxyReader.Close()
+	_, err = io.Copy(writer, proxyReader)
+	if err != nil {
+		pos, posErr := writer.Seek(0, os.SEEK_CUR)
+		if posErr != nil {
+			log.Printf("Error while getting current file offset, %v\n", err)
+		} else if retry <= MAX_RETRIES {
+			bar.Abort(true)
+			time.Sleep(time.Duration(int64(retry)*2) * time.Second)
+			return G.DownloadFile(file, localPath, pos, retry+1)
+		} else {
+			log.Printf("Error while copying stream, &v", err)
+		}
+	}
+	cleanup()
 	return true
 }
 

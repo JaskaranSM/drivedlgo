@@ -1,31 +1,28 @@
 package db
 
 import (
-	"drivedlgo/utils"
 	"io/ioutil"
 	"log"
-	"path"
 
 	"github.com/prologic/bitcask"
 )
 
 const (
-	DB_NAME     string = "drivedl-go-db"
 	CREDENTIALS string = "credentials"
 	TOKEN       string = "token"
 	DL_DIR      string = "dl_dir"
 )
 
-func getDb() *bitcask.Bitcask {
-	db, err := bitcask.Open(path.Join(utils.GetDbBasePath(), DB_NAME))
+func getDb(dbPath string) *bitcask.Bitcask {
+	db, err := bitcask.Open(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return db
 }
 
-func AddCredentialsDb(credsPath string) (bool, error) {
-	db := getDb()
+func AddCredentialsDb(dbPath string, credsPath string) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	data, err := ioutil.ReadFile(credsPath)
 	if err != nil {
@@ -38,8 +35,8 @@ func AddCredentialsDb(credsPath string) (bool, error) {
 	return true, nil
 }
 
-func AddTokenDb(tok []byte) (bool, error) {
-	db := getDb()
+func AddTokenDb(dbPath string, tok []byte) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Put([]byte(TOKEN), tok)
 	if err != nil {
@@ -48,8 +45,8 @@ func AddTokenDb(tok []byte) (bool, error) {
 	return true, nil
 }
 
-func GetCredentialsDb() ([]byte, error) {
-	db := getDb()
+func GetCredentialsDb(dbPath string) ([]byte, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	data, err := db.Get([]byte(CREDENTIALS))
 	if err != nil {
@@ -58,8 +55,8 @@ func GetCredentialsDb() ([]byte, error) {
 	return data, nil
 }
 
-func GetTokenDb() ([]byte, error) {
-	db := getDb()
+func GetTokenDb(dbPath string) ([]byte, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	data, err := db.Get([]byte(TOKEN))
 	if err != nil {
@@ -68,20 +65,20 @@ func GetTokenDb() ([]byte, error) {
 	return data, nil
 }
 
-func IsCredentialsInDb() bool {
-	db := getDb()
+func IsCredentialsInDb(dbPath string) bool {
+	db := getDb(dbPath)
 	defer db.Close()
 	return db.Has([]byte(CREDENTIALS))
 }
 
-func IsTokenInDb() bool {
-	db := getDb()
+func IsTokenInDb(dbPath string) bool {
+	db := getDb(dbPath)
 	defer db.Close()
 	return db.Has([]byte(TOKEN))
 }
 
-func RemoveCredentialsDb() (bool, error) {
-	db := getDb()
+func RemoveCredentialsDb(dbPath string) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Delete([]byte(CREDENTIALS))
 	if err != nil {
@@ -90,8 +87,8 @@ func RemoveCredentialsDb() (bool, error) {
 	return true, nil
 }
 
-func RemoveTokenDb() (bool, error) {
-	db := getDb()
+func RemoveTokenDb(dbPath string) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Delete([]byte(TOKEN))
 	if err != nil {
@@ -100,8 +97,8 @@ func RemoveTokenDb() (bool, error) {
 	return true, nil
 }
 
-func AddDLDirDb(dir_path string) (bool, error) {
-	db := getDb()
+func AddDLDirDb(dbPath string, dir_path string) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Put([]byte(DL_DIR), []byte(dir_path))
 	if err != nil {
@@ -110,8 +107,8 @@ func AddDLDirDb(dir_path string) (bool, error) {
 	return true, nil
 }
 
-func GetDLDirDb() (string, error) {
-	db := getDb()
+func GetDLDirDb(dbPath string) (string, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	data, err := db.Get([]byte(DL_DIR))
 	if err != nil {
@@ -120,8 +117,8 @@ func GetDLDirDb() (string, error) {
 	return string(data), nil
 }
 
-func RemoveDLDirDb() (bool, error) {
-	db := getDb()
+func RemoveDLDirDb(dbPath string) (bool, error) {
+	db := getDb(dbPath)
 	defer db.Close()
 	err := db.Delete([]byte(DL_DIR))
 	if err != nil {
