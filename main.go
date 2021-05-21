@@ -148,6 +148,13 @@ func main() {
 			Usage: "Enable downloading of files marked as abusive by google drive.",
 		},
 	}
+	subCommandFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:  "db-path",
+			Usage: "File path to store the database.",
+			Value: utils.GetDefaultDbPath(),
+		},
+	}
 	app := cli.NewApp()
 	app.Name = "Google Drive Downloader"
 	app.Usage = "A minimal Google Drive Downloader written in Go."
@@ -162,49 +169,25 @@ func main() {
 			Name:   "set",
 			Usage:  "add credentials.json file to database",
 			Action: setCredsCallback,
-			Flags:  []cli.Flag{
-				&cli.StringFlag{
-					Name:  "db-path",
-					Usage: "File path to store the database.",
-					Value: utils.GetDefaultDbPath(),
-				},
-			},
+			Flags:  subCommandFlags,
 		},
 		{
 			Name:   "rm",
 			Usage:  "remove credentials from database",
 			Action: rmCredsCallback,
-			Flags:  []cli.Flag{
-				&cli.StringFlag{
-					Name:  "db-path",
-					Usage: "File path to store the database.",
-					Value: utils.GetDefaultDbPath(),
-				},
-			},
+			Flags:  subCommandFlags,
 		},
 		{
 			Name:   "setdldir",
 			Usage:  "set default download directory",
 			Action: setDLDirCallback,
-			Flags:  []cli.Flag{
-				&cli.StringFlag{
-					Name:  "db-path",
-					Usage: "File path to store the database.",
-					Value: utils.GetDefaultDbPath(),
-				},
-			},
+			Flags:  subCommandFlags,
 		},
 		{
 			Name:   "rmdldir",
 			Usage:  "remove default download directory and set the application to download in current folder.",
 			Action: rmDLDirCallback,
-			Flags:  []cli.Flag{
-				&cli.StringFlag{
-					Name:  "db-path",
-					Usage: "File path to store the database.",
-					Value: utils.GetDefaultDbPath(),
-				},
-			},
+			Flags:  subCommandFlags,
 		},
 	}
 	app.Version = "1.5"
