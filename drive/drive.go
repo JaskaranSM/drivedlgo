@@ -170,10 +170,13 @@ func (G *GoogleDriveClient) GetFileMetadata(fileId string) *drive.File {
 	return file
 }
 
-func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
+func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath string) {
 	file := G.GetFileMetadata(nodeId)
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
-	absPath := path.Join(localPath, file.Name)
+	if outputPath == "" {
+		outputPath = file.Name
+	}
+	absPath := path.Join(localPath, outputPath)
 	if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
 		err := os.MkdirAll(absPath, 0755)
 		if err != nil {
