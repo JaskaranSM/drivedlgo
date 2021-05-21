@@ -91,12 +91,12 @@ func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar
 	return bar
 }
 
-func (G *GoogleDriveClient) getClient(config *oauth2.Config) *http.Client {
-	tokBytes, err := db.GetTokenDb()
+func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config) *http.Client {
+	tokBytes, err := db.GetTokenDb(dbPath)
 	var tok *oauth2.Token
 	if err != nil {
 		tok = G.getTokenFromWeb(config)
-		db.AddTokenDb(utils.OauthTokenToBytes(tok))
+		db.AddTokenDb(dbPath, utils.OauthTokenToBytes(tok))
 	} else {
 		tok = utils.BytesToOauthToken(tokBytes)
 	}
@@ -120,8 +120,8 @@ func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config) *oauth2.Token
 	return tok
 }
 
-func (G *GoogleDriveClient) Authorize() {
-	credsJsonBytes, err := db.GetCredentialsDb()
+func (G *GoogleDriveClient) Authorize(dbPath string) {
+	credsJsonBytes, err := db.GetCredentialsDb(dbPath)
 	if err != nil {
 		log.Fatalf("Unable to Get Credentials from Db, make sure to use set command: %v", err)
 	}
@@ -131,7 +131,7 @@ func (G *GoogleDriveClient) Authorize() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	client := G.getClient(config)
+	client := G.getClient(dbPath, config)
 	srv, err := drive.New(client)
 	if err != nil {
 		log.Fatalf("Unable to retrieve Drive client: %v", err)

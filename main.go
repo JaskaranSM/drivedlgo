@@ -3,6 +3,7 @@ package main
 import (
 	"drivedlgo/db"
 	"drivedlgo/drive"
+	"drivedlgo/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -50,10 +51,10 @@ func downloadCallback(c *cli.Context) error {
 	fmt.Printf("Detected File-Id: %s\n", fileId)
 	GD := drive.NewDriveClient()
 	GD.Init()
-	GD.Authorize()
+	GD.Authorize(c.String("db-path"))
 	GD.SetConcurrency(c.Int("conn"))
 	GD.SetAbusiveFileDownload(c.Bool("acknowledge-abuse"))
-	cus_path, err := db.GetDLDirDb()
+	cus_path, err := db.GetDLDirDb(c.String("db-path"))
 	if err == nil {
 		if c.String("path") == "." {
 			path.Join(cus_path, c.String("path"))
@@ -73,11 +74,11 @@ func setCredsCallback(c *cli.Context) error {
 		return errors.New("Provide a proper credentials.json file path.")
 	}
 	fmt.Printf("Detected credentials.json Path: %s\n", arg)
-	if !db.IsCredentialsInDb() {
-		if db.IsTokenInDb() {
-			db.RemoveTokenDb()
+	if !db.IsCredentialsInDb(c.String("db-path")) {
+		if db.IsTokenInDb(c.String("db-path")) {
+			db.RemoveTokenDb(c.String("db-path"))
 		}
-		db.AddCredentialsDb(arg)
+		db.AddCredentialsDb(c.String("db-path"), arg)
 		fmt.Printf("%s added in database.\n", arg)
 	} else {
 		fmt.Println("A credentials file already exists in databse, use rm command to remove it first.")
@@ -86,9 +87,9 @@ func setCredsCallback(c *cli.Context) error {
 }
 
 func rmCredsCallback(c *cli.Context) error {
-	if db.IsCredentialsInDb() {
-		db.RemoveCredentialsDb()
-		db.RemoveTokenDb()
+	if db.IsCredentialsInDb(c.String("db-path")) {
+		db.RemoveCredentialsDb(c.String("db-path"))
+		db.RemoveTokenDb(c.String("db-path"))
 		fmt.Println("credentials removed from database successfully.")
 	} else {
 		fmt.Println("Database doesnt contain any credentials.")
@@ -102,20 +103,20 @@ func setDLDirCallback(c *cli.Context) error {
 		return errors.New("Provide a proper download directory path.")
 	}
 	fmt.Printf("Detected download directory path: %s\n", arg)
-	_, err := db.GetDLDirDb()
+	_, err := db.GetDLDirDb(c.String("db-path"))
 	if err == nil {
-		db.RemoveDLDirDb()
+		db.RemoveDLDirDb(c.String("db-path"))
 	}
-	_, err = db.AddDLDirDb(arg)
+	_, err = db.AddDLDirDb(c.String("db-path"), arg)
 	return err
 }
 
 func rmDLDirCallback(c *cli.Context) error {
-	_, err := db.GetDLDirDb()
+	_, err := db.GetDLDirDb(c.String("db-path"))
 	if err != nil {
 		fmt.Println("DB doesnt contain default directory path, try --help.")
 	} else {
-		_, err = db.RemoveDLDirDb()
+		_, err = db.RemoveDLDirDb(c.String("db-path"))
 		if err == nil {
 			fmt.Println("Default directory removed successfully, now application will download in current working directory.")
 		} else {
@@ -131,6 +132,11 @@ func main() {
 			Name:  "path",
 			Usage: "Folder path to store the download.",
 			Value: ".",
+		},
+		&cli.StringFlag{
+			Name:  "db-path",
+			Usage: "File path to store the database.",
+			Value: utils.GetDefaultDbPath(),
 		},
 		&cli.IntFlag{
 			Name:  "conn",
@@ -156,21 +162,49 @@ func main() {
 			Name:   "set",
 			Usage:  "add credentials.json file to database",
 			Action: setCredsCallback,
+			Flags:  []cli.Flag{
+				&cli.StringFlag{
+					Name:  "db-path",
+					Usage: "File path to store the database.",
+					Value: utils.GetDefaultDbPath(),
+				},
+			},
 		},
 		{
 			Name:   "rm",
 			Usage:  "remove credentials from database",
 			Action: rmCredsCallback,
+			Flags:  []cli.Flag{
+				&cli.StringFlag{
+					Name:  "db-path",
+					Usage: "File path to store the database.",
+					Value: utils.GetDefaultDbPath(),
+				},
+			},
 		},
 		{
 			Name:   "setdldir",
 			Usage:  "set default download directory",
 			Action: setDLDirCallback,
+			Flags:  []cli.Flag{
+				&cli.StringFlag{
+					Name:  "db-path",
+					Usage: "File path to store the database.",
+					Value: utils.GetDefaultDbPath(),
+				},
+			},
 		},
 		{
 			Name:   "rmdldir",
 			Usage:  "remove default download directory and set the application to download in current folder.",
 			Action: rmDLDirCallback,
+			Flags:  []cli.Flag{
+				&cli.StringFlag{
+					Name:  "db-path",
+					Usage: "File path to store the database.",
+					Value: utils.GetDefaultDbPath(),
+				},
+			},
 		},
 	}
 	app.Version = "1.5"
