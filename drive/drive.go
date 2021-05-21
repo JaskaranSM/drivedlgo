@@ -188,21 +188,9 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string) {
 			log.Println("Error while creating directory: ", err.Error())
 			return
 		}
-		exists, bytesDled, err := utils.CheckLocalFile(absPath, file.Md5Checksum)
-		if err != nil {
-			log.Printf("[FileCheckError]: %v\n", err)
-			return
-		}
-		if exists {
-			fmt.Printf("%s already downloaded.\n", file.Name)
-			return
-		}
-		if bytesDled != 0 {
-			fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
-		}
 		G.channel <- 1
-		go G.DownloadFile(file, absPath, bytesDled, 1)
 		wg.Add(1)
+		go G.HandleDownloadFile(file, absPath)
 	}
 	wg.Wait()
 }
@@ -219,29 +207,36 @@ func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 			}
 			G.TraverseNodes(file.Id, absPath)
 		} else {
-			exists, bytesDled, err := utils.CheckLocalFile(absPath, file.Md5Checksum)
-			if err != nil {
-				log.Printf("[FileCheckError]: %v\n", err)
-				continue
-			}
-			if exists {
-				fmt.Printf("%s already downloaded.\n", file.Name)
-				continue
-			}
-			if bytesDled != 0 {
-				fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
-			}
 			G.channel <- 1
-			go G.DownloadFile(file, absPath, bytesDled, 1)
 			wg.Add(1)
+			go G.HandleDownloadFile(file, absPath)
 		}
 	}
 }
 
-func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64, retry int) bool {
-	cleanup := func() {
+func (G *GoogleDriveClient) HandleDownloadFile(file *drive.File, absPath string) {
+	defer func() {
 		wg.Done()
 		<-G.channel
+	}()
+
+	exists, bytesDled, err := utils.CheckLocalFile(absPath, file.Md5Checksum)
+	if err != nil {
+		log.Printf("[FileCheckError]: %v\n", err)
+		return
+	}
+	if exists {
+		fmt.Printf("%s already downloaded.\n", file.Name)
+		return
+	}
+	if bytesDled != 0 {
+		fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
+	}
+	G.DownloadFile(file, absPath, bytesDled, 1)
+}
+
+func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64, retry int) bool {
+	cleanup := func() {
 	}
 	writer, err := os.OpenFile(localPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	defer writer.Close()
