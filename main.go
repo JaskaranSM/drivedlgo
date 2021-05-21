@@ -194,7 +194,7 @@ func main() {
 			Flags:  subCommandFlags,
 		},
 	}
-	app.Version = "1.5"
+	app.Version = "1.6"
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
