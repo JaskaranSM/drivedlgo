@@ -64,7 +64,7 @@ func downloadCallback(c *cli.Context) error {
 	} else {
 		cus_path = c.String("path")
 	}
-	GD.Download(fileId, cus_path)
+	GD.Download(fileId, cus_path, c.String("output"))
 	return nil
 }
 
@@ -132,6 +132,10 @@ func main() {
 			Name:  "path",
 			Usage: "Folder path to store the download.",
 			Value: ".",
+		},
+		&cli.StringFlag{
+			Name:  "output",
+			Usage: "File/folder name of the download.",
 		},
 		&cli.StringFlag{
 			Name:  "db-path",
