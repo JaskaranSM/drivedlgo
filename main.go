@@ -1,9 +1,9 @@
 package main
 
 import (
-	"drivedlgo/db"
-	"drivedlgo/drive"
-	"drivedlgo/utils"
+	"github.com/jaskaranSM/drivedlgo/db"
+	"github.com/jaskaranSM/drivedlgo/drive"
+	"github.com/jaskaranSM/drivedlgo/utils"
 	"errors"
 	"fmt"
 	"log"
