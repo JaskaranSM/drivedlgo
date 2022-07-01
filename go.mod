@@ -1,4 +1,4 @@
-module drivedlgo
+module github.com/jaskaranSM/drivedlgo
 
 go 1.15
 
