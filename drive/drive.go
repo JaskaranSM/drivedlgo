@@ -1,9 +1,9 @@
 package drive
 
 import (
-	"drivedlgo/customdec"
-	"drivedlgo/db"
-	"drivedlgo/utils"
+	"github.com/jaskaranSM/drivedlgo/customdec"
+	"github.com/jaskaranSM/drivedlgo/db"
+	"github.com/jaskaranSM/drivedlgo/utils"
 	"fmt"
 	"io"
 	"log"
