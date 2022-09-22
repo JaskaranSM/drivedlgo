@@ -19,8 +19,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
 
 var wg sync.WaitGroup
@@ -44,6 +44,7 @@ func (G *GoogleDriveClient) Init() {
 	G.CredentialFile = "credentials.json"
 	G.channel = make(chan int, 2)
 	G.Progress = mpb.New(mpb.WithWidth(60), mpb.WithRefreshRate(180*time.Millisecond))
+	log.SetOutput(G.Progress)
 }
 
 func (G *GoogleDriveClient) SetAbusiveFileDownload(abuse bool) {
@@ -60,10 +61,10 @@ func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar
 	var bar *mpb.Bar
 	if len(filename) > MAX_NAME_CHARACTERS {
 		marquee := customdec.NewChangeNameDecor(filename, MAX_NAME_CHARACTERS)
-		bar = G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
+		bar = G.Progress.AddBar(size,
 			mpb.PrependDecorators(
 				decor.Name("[ "),
-				marquee.MarqueeText(decor.WC{W: 5, C: decor.DidentRight}),
+				marquee.MarqueeText(),
 				decor.Name(" ] "),
 				decor.CountersKibiByte("% .2f / % .2f"),
 			),
@@ -74,7 +75,7 @@ func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar
 			),
 		)
 	} else {
-		bar = G.Progress.AddBar(size, mpb.BarStyle("[=>-|"),
+		bar = G.Progress.AddBar(size,
 			mpb.PrependDecorators(
 				decor.Name("[ "),
 				decor.Name(filename, decor.WC{W: 5, C: decor.DidentRight}),
@@ -274,7 +275,7 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 			time.Sleep(time.Duration(int64(retry)*2) * time.Second)
 			return G.DownloadFile(file, localPath, pos, retry+1)
 		} else {
-			log.Printf("Error while copying stream, &v", err)
+			log.Printf("Error while copying stream, %v\n", err)
 		}
 	}
 	cleanup()

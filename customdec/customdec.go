@@ -1,7 +1,7 @@
 package customdec
 
 import (
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v8/decor"
 )
 
 type MarqueeTextDecor struct {
@@ -28,7 +28,7 @@ func (c *MarqueeTextDecor) Incr() {
 	c.CurrentIndex += 1
 }
 
-func (c *MarqueeTextDecor) MarqueeText(wcc ...decor.WC) decor.Decorator {
+func (c *MarqueeTextDecor) MarqueeText() decor.Decorator {
 	return decor.Any(func(s decor.Statistics) string {
 		if s.Completed {
 			return c.String[:c.Size]
@@ -36,7 +36,7 @@ func (c *MarqueeTextDecor) MarqueeText(wcc ...decor.WC) decor.Decorator {
 		st := c.GetString()
 		c.Incr()
 		return st
-	}, wcc...)
+	})
 }
 
 func NewChangeNameDecor(str string, size int) *MarqueeTextDecor {
