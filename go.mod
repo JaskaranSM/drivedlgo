@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/OpenPeeDeeP/xdg v1.0.0
-	github.com/prologic/bitcask v0.3.6
+	git.mills.io/prologic/bitcask v0.3.6
 	github.com/urfave/cli v1.22.4
 	github.com/vbauerster/mpb/v5 v5.3.0
 	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
