@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/OpenPeeDeeP/xdg"
 	"golang.org/x/oauth2"
@@ -50,6 +51,9 @@ func GetFileMd5(filePath string) (string, error) {
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
+		return false
+	}
+	if info == nil {
 		return false
 	}
 	return !info.IsDir()
@@ -97,4 +101,11 @@ func StringToInt(str string) (int, error) {
 		return 0, err
 	}
 	return i, nil
+}
+
+func CleanupFilename(name string) string {
+	for _, char := range []string{"\"", "?", "&", "*", "@", "!", "'"} {
+		name = strings.ReplaceAll(name, char, "")
+	}
+	return name
 }

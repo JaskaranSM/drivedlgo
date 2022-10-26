@@ -175,7 +175,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath
 	file := G.GetFileMetadata(nodeId)
 	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
 	if outputPath == "" {
-		outputPath = file.Name
+		outputPath = utils.CleanupFilename(file.Name)
 	}
 	absPath := path.Join(localPath, outputPath)
 	if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
@@ -202,7 +202,7 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath
 func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
 	files := G.GetFilesByParentId(nodeId)
 	for _, file := range files {
-		absPath := path.Join(localPath, file.Name)
+		absPath := path.Join(localPath, utils.CleanupFilename(file.Name))
 		if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
 			err := os.MkdirAll(absPath, 0755)
 			if err != nil {
