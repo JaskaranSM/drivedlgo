@@ -61,6 +61,7 @@ func (G *GoogleDriveClient) SetConcurrency(count int) {
 func (G *GoogleDriveClient) SetSilent(silent bool) {
 	if silent {
 		fmt.Println("Not printing live progress")
+		G.Progress.Shutdown()
 	}
 	G.silent = silent
 }
