@@ -54,6 +54,7 @@ func downloadCallback(c *cli.Context) error {
 	GD.Authorize(c.String("db-path"))
 	GD.SetConcurrency(c.Int("conn"))
 	GD.SetAbusiveFileDownload(c.Bool("acknowledge-abuse"))
+	GD.SetSilent(c.Bool("silent"))
 	cus_path, err := db.GetDLDirDb(c.String("db-path"))
 	if err == nil {
 		if c.String("path") == "." {
@@ -150,6 +151,10 @@ func main() {
 		&cli.BoolFlag{
 			Name:  "acknowledge-abuse",
 			Usage: "Enable downloading of files marked as abusive by google drive.",
+		},
+		&cli.BoolFlag{
+			Name:  "silent",
+			Usage: "Disable the printing of progress",
 		},
 	}
 	subCommandFlags := []cli.Flag{

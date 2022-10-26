@@ -36,6 +36,7 @@ type GoogleDriveClient struct {
 	Progress            *mpb.Progress
 	abuse               bool
 	channel             chan int
+	silent              bool
 }
 
 func (G *GoogleDriveClient) Init() {
@@ -55,6 +56,13 @@ func (G *GoogleDriveClient) SetAbusiveFileDownload(abuse bool) {
 func (G *GoogleDriveClient) SetConcurrency(count int) {
 	fmt.Printf("Using Concurrency: %d\n", count)
 	G.channel = make(chan int, count)
+}
+
+func (G *GoogleDriveClient) SetSilent(silent bool) {
+	if silent {
+		fmt.Println("Not printing live progress")
+	}
+	G.silent = silent
 }
 
 func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar {
@@ -262,8 +270,16 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 		cleanup()
 		return false
 	}
-	bar := G.GetProgressBar(file.Name, file.Size-startByteIndex)
-	proxyReader := bar.ProxyReader(response.Body)
+	var (
+		proxyReader io.ReadCloser
+		bar         *mpb.Bar
+	)
+	if G.silent {
+		proxyReader = response.Body
+	} else {
+		bar = G.GetProgressBar(file.Name, file.Size-startByteIndex)
+		proxyReader = bar.ProxyReader(response.Body)
+	}
 	defer proxyReader.Close()
 	_, err = io.Copy(writer, proxyReader)
 	if err != nil {
@@ -271,7 +287,9 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 		if posErr != nil {
 			log.Printf("Error while getting current file offset, %v\n", err)
 		} else if retry <= MAX_RETRIES {
-			bar.Abort(true)
+			if !G.silent {
+				bar.Abort(true)
+			}
 			time.Sleep(time.Duration(int64(retry)*2) * time.Second)
 			return G.DownloadFile(file, localPath, pos, retry+1)
 		} else {
