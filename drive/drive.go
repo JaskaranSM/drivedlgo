@@ -254,7 +254,7 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 	request.Header().Add("Range", fmt.Sprintf("bytes=%d-%d", startByteIndex, file.Size))
 	response, err := request.Download()
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "rate") || response.StatusCode >= 500 && retry <= 5 {
+		if strings.Contains(strings.ToLower(err.Error()), "rate") || response != nil && response.StatusCode >= 500 && retry <= 5 {
 			time.Sleep(5 * time.Second)
 			return G.DownloadFile(file, localPath, startByteIndex, retry+1)
 		}
