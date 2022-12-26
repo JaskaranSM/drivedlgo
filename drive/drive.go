@@ -44,7 +44,6 @@ func (G *GoogleDriveClient) Init() {
 	G.CredentialFile = "credentials.json"
 	G.channel = make(chan int, 2)
 	G.Progress = mpb.New(mpb.WithWidth(60), mpb.WithRefreshRate(180*time.Millisecond))
-	log.SetOutput(G.Progress)
 }
 
 func (G *GoogleDriveClient) SetAbusiveFileDownload(abuse bool) {
@@ -92,11 +91,11 @@ func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar
 	return bar
 }
 
-func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config) *http.Client {
+func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config, port int) *http.Client {
 	tokBytes, err := db.GetTokenDb(dbPath)
 	var tok *oauth2.Token
 	if err != nil {
-		tok = G.getTokenFromWeb(config)
+		tok = G.getTokenFromWeb(config, port)
 		db.AddTokenDb(dbPath, utils.OauthTokenToBytes(tok))
 	} else {
 		tok = utils.BytesToOauthToken(tokBytes)
@@ -104,16 +103,39 @@ func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config) *htt
 	return config.Client(context.Background(), tok)
 }
 
-func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
-		"authorization code: \n%v\n", authURL)
-
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code %v", err)
+func (G *GoogleDriveClient) getTokenFromHTTP(port int) (string, error) {
+	srv := &http.Server{Addr: fmt.Sprintf(":%d", port)}
+	var code string
+	var codeReceived chan struct{} = make(chan struct{})
+	var err error
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		code = r.URL.Query().Get("code")
+		_, err = fmt.Fprint(w, "Code received, you can close this browser window now.")
+		codeReceived <- struct{}{}
+	})
+	go func() {
+		err = srv.ListenAndServe()
+	}()
+	if err != nil {
+		return code, err
 	}
+	<-codeReceived
+	err = srv.Shutdown(context.Background())
+	return code, err
+}
 
+func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config, port int) *oauth2.Token {
+	config.RedirectURL = fmt.Sprintf("http://localhost:%d", port)
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser: \n%v\n", authURL)
+	err := utils.OpenBrowserURL(authURL)
+	if err != nil {
+		log.Printf("unable to open browser, you have to manually visit the provided link: %v\n", err)
+	}
+	authCode, err := G.getTokenFromHTTP(port)
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("unable to get token from oauth web: %v\n", err)
+	}
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web %v", err)
@@ -121,9 +143,10 @@ func (G *GoogleDriveClient) getTokenFromWeb(config *oauth2.Config) *oauth2.Token
 	return tok
 }
 
-func (G *GoogleDriveClient) Authorize(dbPath string, useSA bool) {
+func (G *GoogleDriveClient) Authorize(dbPath string, useSA bool, port int) {
 	var client *http.Client
 	if useSA {
+		fmt.Println("Authorizing via service-account")
 		jwtConfigJsonBytes, err := db.GetJWTConfigDb(dbPath)
 		if err != nil {
 			log.Fatalf("Unable to Get SA Credentials from Db, make sure to use setsa command: %v", err)
@@ -135,6 +158,7 @@ func (G *GoogleDriveClient) Authorize(dbPath string, useSA bool) {
 		}
 		client = config.Client(context.Background())
 	} else {
+		fmt.Println("Authorizing via google-account")
 		credsJsonBytes, err := db.GetCredentialsDb(dbPath)
 		if err != nil {
 			log.Fatalf("Unable to Get Credentials from Db, make sure to use set command: %v", err)
@@ -145,7 +169,7 @@ func (G *GoogleDriveClient) Authorize(dbPath string, useSA bool) {
 		if err != nil {
 			log.Fatalf("Unable to parse client secret file to config: %v", err)
 		}
-		client = G.getClient(dbPath, config)
+		client = G.getClient(dbPath, config, port)
 	}
 	srv, err := drive.New(client)
 	if err != nil {
@@ -199,7 +223,6 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath
 			return
 		}
 		G.TraverseNodes(file.Id, absPath)
-
 	} else {
 		err := os.MkdirAll(localPath, 0755)
 		if err != nil {
@@ -268,6 +291,7 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 	request.Header().Add("Range", fmt.Sprintf("bytes=%d-%d", startByteIndex, file.Size))
 	response, err := request.Download()
 	if err != nil {
+		log.Printf("err while requesting download: retrying download: %s: %v\n", file.Name, err)
 		if strings.Contains(strings.ToLower(err.Error()), "rate") || response != nil && response.StatusCode >= 500 && retry <= 5 {
 			time.Sleep(5 * time.Second)
 			return G.DownloadFile(file, localPath, startByteIndex, retry+1)
@@ -285,6 +309,7 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 		if posErr != nil {
 			log.Printf("Error while getting current file offset, %v\n", err)
 		} else if retry <= MAX_RETRIES {
+			log.Printf("err while copying stream: retrying download: %s: %v\n", file.Name, err)
 			bar.Abort(true)
 			time.Sleep(time.Duration(int64(retry)*2) * time.Second)
 			return G.DownloadFile(file, localPath, pos, retry+1)

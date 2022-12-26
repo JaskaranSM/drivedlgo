@@ -5,9 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/gob"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -104,8 +107,24 @@ func StringToInt(str string) (int, error) {
 }
 
 func CleanupFilename(name string) string {
-	for _, char := range []string{"\"", "?", "&", "*", "@", "!", "'"} {
+	for _, char := range []string{"\"", "?", "&", "*", "@", "!", "'", ":"} {
 		name = strings.ReplaceAll(name, char, "")
 	}
 	return name
+}
+
+func OpenBrowserURL(url string) error {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("open-browser: unsupported platform")
+	}
+	return err
 }

@@ -51,7 +51,7 @@ func downloadCallback(c *cli.Context) error {
 	fmt.Printf("Detected File-Id: %s\n", fileId)
 	GD := drive.NewDriveClient()
 	GD.Init()
-	GD.Authorize(c.String("db-path"), c.Bool("usesa"))
+	GD.Authorize(c.String("db-path"), c.Bool("usesa"), c.Int("port"))
 	GD.SetConcurrency(c.Int("conn"))
 	GD.SetAbusiveFileDownload(c.Bool("acknowledge-abuse"))
 	cus_path, err := db.GetDLDirDb(c.String("db-path"))
@@ -64,6 +64,7 @@ func downloadCallback(c *cli.Context) error {
 	} else {
 		cus_path = c.String("path")
 	}
+	log.SetOutput(GD.Progress)
 	GD.Download(fileId, cus_path, c.String("output"))
 	return nil
 }
@@ -179,6 +180,11 @@ func main() {
 		&cli.BoolFlag{
 			Name:  "usesa",
 			Usage: "Use service accounts instead of OAuth.",
+		},
+		&cli.IntFlag{
+			Name:  "port",
+			Usage: "Port for the OAuth web server.",
+			Value: 8096,
 		},
 	}
 	subCommandFlags := []cli.Flag{
