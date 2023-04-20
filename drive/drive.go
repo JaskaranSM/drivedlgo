@@ -5,6 +5,7 @@ import (
 	"drivedlgo/db"
 	"drivedlgo/utils"
 	"fmt"
+	"github.com/vbauerster/mpb/v8"
 	"io"
 	"log"
 	"net/http"
@@ -14,13 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
-
-	"github.com/vbauerster/mpb/v8"
-	"github.com/vbauerster/mpb/v8/decor"
 )
 
 var wg sync.WaitGroup
@@ -182,7 +181,7 @@ func (G *GoogleDriveClient) GetFilesByParentId(parentId string) []*drive.File {
 	var files []*drive.File
 	pageToken := ""
 	for {
-		request := G.DriveSrv.Files.List().Q("'" + parentId + "' in parents").OrderBy("name,folder").SupportsAllDrives(true).IncludeTeamDriveItems(true).PageSize(1000).
+		request := G.DriveSrv.Files.List().Q("'" + parentId + "' in parents and trashed=false").OrderBy("name,folder").SupportsAllDrives(true).IncludeTeamDriveItems(true).PageSize(1000).
 			Fields("nextPageToken,files(id, name,size, mimeType,md5Checksum)")
 		if pageToken != "" {
 			request = request.PageToken(pageToken)
