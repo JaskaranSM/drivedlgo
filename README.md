@@ -110,7 +110,7 @@ To authenticate as an end user and access user data in your app, you need to cre
 
 ## Configuration
 
-- Add your own account client ID our rclone credentials.json file to database by running
+- Add your own account client ID our [rclone](https://github.com/semisoft0072/drivedlgo/blob/README.md/rclone.json) credentials.json file to database by running
 
 ```terminal
 drivedlgo set "/PATH/credentials.json"
