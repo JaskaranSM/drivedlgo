@@ -5,7 +5,6 @@ import (
 	"drivedlgo/db"
 	"drivedlgo/utils"
 	"fmt"
-	"github.com/vbauerster/mpb/v8"
 	"io"
 	"log"
 	"net/http"
@@ -15,11 +14,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/vbauerster/mpb/v8"
+
 	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
 )
 
 var wg sync.WaitGroup
@@ -34,6 +37,7 @@ type GoogleDriveClient struct {
 	DriveSrv            *drive.Service
 	Progress            *mpb.Progress
 	abuse               bool
+	numFilesDownloaded  int
 	channel             chan int
 }
 
@@ -55,39 +59,28 @@ func (G *GoogleDriveClient) SetConcurrency(count int) {
 	G.channel = make(chan int, count)
 }
 
+func (G *GoogleDriveClient) PrepareProgressBar(size int64, dec decor.Decorator) *mpb.Bar {
+	return G.Progress.AddBar(size,
+		mpb.PrependDecorators(
+			decor.Name("[ "),
+			dec,
+			decor.Name(" ] "),
+			decor.CountersKibiByte("% .2f / % .2f"),
+		),
+		mpb.AppendDecorators(
+			decor.AverageETA(decor.ET_STYLE_GO),
+			decor.Name("]"),
+			decor.AverageSpeed(decor.SizeB1000(0), " % .2f"),
+		),
+	)
+}
+
 func (G *GoogleDriveClient) GetProgressBar(filename string, size int64) *mpb.Bar {
-	var bar *mpb.Bar
 	if len(filename) > MAX_NAME_CHARACTERS {
 		marquee := customdec.NewChangeNameDecor(filename, MAX_NAME_CHARACTERS)
-		bar = G.Progress.AddBar(size,
-			mpb.PrependDecorators(
-				decor.Name("[ "),
-				marquee.MarqueeText(),
-				decor.Name(" ] "),
-				decor.CountersKibiByte("% .2f / % .2f"),
-			),
-			mpb.AppendDecorators(
-				decor.AverageETA(decor.ET_STYLE_GO),
-				decor.Name("]"),
-				decor.AverageSpeed(decor.UnitKiB, " % .2f"),
-			),
-		)
-	} else {
-		bar = G.Progress.AddBar(size,
-			mpb.PrependDecorators(
-				decor.Name("[ "),
-				decor.Name(filename, decor.WC{W: 5, C: decor.DidentRight}),
-				decor.Name(" ] "),
-				decor.CountersKibiByte("% .2f / % .2f"),
-			),
-			mpb.AppendDecorators(
-				decor.AverageETA(decor.ET_STYLE_GO),
-				decor.Name("]"),
-				decor.AverageSpeed(decor.UnitKiB, " % .2f"),
-			),
-		)
+		return G.PrepareProgressBar(size, marquee.MarqueeText())
 	}
-	return bar
+	return G.PrepareProgressBar(size, decor.Name(filename, decor.WC{W: 5, C: decor.DSyncSpaceR}))
 }
 
 func (G *GoogleDriveClient) getClient(dbPath string, config *oauth2.Config, port int) *http.Client {
@@ -170,7 +163,7 @@ func (G *GoogleDriveClient) Authorize(dbPath string, useSA bool, port int) {
 		}
 		client = G.getClient(dbPath, config, port)
 	}
-	srv, err := drive.New(client)
+	srv, err := drive.NewService(context.Background(), option.WithHTTPClient(client))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Drive client: %v", err)
 	}
@@ -203,29 +196,36 @@ func (G *GoogleDriveClient) GetFilesByParentId(parentId string) []*drive.File {
 func (G *GoogleDriveClient) GetFileMetadata(fileId string) *drive.File {
 	file, err := G.DriveSrv.Files.Get(fileId).Fields("name,mimeType,size,id,md5Checksum").SupportsAllDrives(true).Do()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(0)
 	}
 	return file
 }
 
 func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath string) {
+	startTime := time.Now()
 	file := G.GetFileMetadata(nodeId)
-	fmt.Printf("Name: %s, MimeType: %s\n", file.Name, file.MimeType)
 	if outputPath == "" {
 		outputPath = utils.CleanupFilename(file.Name)
 	}
+	fmt.Printf("%s(%s): %s -> %s/%s\n", color.HiBlueString("Download"), color.GreenString(file.MimeType), color.HiGreenString(file.Id), color.HiYellowString(localPath), color.HiYellowString(outputPath))
 	absPath := path.Join(localPath, outputPath)
 	if file.MimeType == G.GDRIVE_DIR_MIMETYPE {
 		err := os.MkdirAll(absPath, 0755)
 		if err != nil {
-			log.Println("Error while creating directory: ", err.Error())
+			fmt.Println("Error while creating directory: ", err.Error())
 			return
 		}
-		G.TraverseNodes(file.Id, absPath)
+		files := G.GetFilesByParentId(file.Id)
+		if len(files) == 0 {
+			fmt.Println("google drive folder is empty.")
+		} else {
+			G.TraverseNodes(file.Id, absPath)
+		}
 	} else {
 		err := os.MkdirAll(localPath, 0755)
 		if err != nil {
-			log.Println("Error while creating directory: ", err.Error())
+			fmt.Println("Error while creating directory: ", err.Error())
 			return
 		}
 		G.channel <- 1
@@ -233,6 +233,8 @@ func (G *GoogleDriveClient) Download(nodeId string, localPath string, outputPath
 		go G.HandleDownloadFile(file, absPath)
 	}
 	wg.Wait()
+	G.Progress.Wait()
+	fmt.Printf("%s", color.GreenString(fmt.Sprintf("Downloaded %d files in %s.\n", G.numFilesDownloaded, time.Now().Sub(startTime))))
 }
 
 func (G *GoogleDriveClient) TraverseNodes(nodeId string, localPath string) {
@@ -270,19 +272,17 @@ func (G *GoogleDriveClient) HandleDownloadFile(file *drive.File, absPath string)
 		return
 	}
 	if bytesDled != 0 {
-		fmt.Printf("Resuming %s at offset %d\n", file.Name, bytesDled)
+		o := fmt.Sprintf("Resuming %s at offset %d\n", file.Name, bytesDled)
+		fmt.Printf("%s", color.GreenString(o))
 	}
 	G.DownloadFile(file, absPath, bytesDled, 1)
 }
 
 func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, startByteIndex int64, retry int) bool {
-	cleanup := func() {
-	}
 	writer, err := os.OpenFile(localPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	defer writer.Close()
 	if err != nil {
 		log.Printf("[FileOpenError]: %v\n", err)
-		cleanup()
 		return false
 	}
 	writer.Seek(startByteIndex, 0)
@@ -296,7 +296,6 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 			return G.DownloadFile(file, localPath, startByteIndex, retry+1)
 		}
 		log.Printf("[API-files:get]: (%s) %v\n", file.Id, err)
-		cleanup()
 		return false
 	}
 	bar := G.GetProgressBar(file.Name, file.Size-startByteIndex)
@@ -304,9 +303,10 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 	defer proxyReader.Close()
 	_, err = io.Copy(writer, proxyReader)
 	if err != nil {
-		pos, posErr := writer.Seek(0, os.SEEK_CUR)
+		pos, posErr := writer.Seek(0, io.SeekCurrent)
 		if posErr != nil {
 			log.Printf("Error while getting current file offset, %v\n", err)
+			return false
 		} else if retry <= MAX_RETRIES {
 			log.Printf("err while copying stream: retrying download: %s: %v\n", file.Name, err)
 			bar.Abort(true)
@@ -315,8 +315,9 @@ func (G *GoogleDriveClient) DownloadFile(file *drive.File, localPath string, sta
 		} else {
 			log.Printf("Error while copying stream, %v\n", err)
 		}
+	} else {
+		G.numFilesDownloaded += 1
 	}
-	cleanup()
 	return true
 }
 
